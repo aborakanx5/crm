@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>لوحة تحكم محل الملابس الرجالية</title>
+<style>
+    body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+    header { background: #333; color: white; padding: 10px; text-align: center; font-size: 20px; }
+    section { padding: 15px; background: white; margin: 15px; border-radius: 10px; }
+    input, select, button { padding: 5px; margin: 5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 5px; text-align: center; }
+    th { background: #eee; }
+    canvas { background: white; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<header>📊 لوحة تحكم محل الملابس الرجالية</header>
+
+<section>
+<h3>إضافة مصروف</h3>
+<input id="expenseId" placeholder="رقم الصرف">
+<input id="expenseName" placeholder="اسم الصرف">
+<input id="expenseType" placeholder="نوع الصرف">
+<input id="expenseAmount" type="number" placeholder="المبلغ">
+<input id="expenseDate" type="date">
+<button onclick="addExpense()">إضافة</button>
+</section>
+
+<section>
+<h3>إضافة مبيعات</h3>
+<input id="saleAmount" type="number" placeholder="المبلغ">
+<input id="saleDate" type="date">
+<button onclick="addSale()">إضافة</button>
+</section>
+
+<section>
+<h3>بحث</h3>
+<select id="filterMonth">
+    <option value="">كل الشهور</option>
+    <option value="01">يناير</option>
+    <option value="02">فبراير</option>
+    <option value="03">مارس</option>
+    <option value="04">أبريل</option>
+    <option value="05">مايو</option>
+    <option value="06">يونيو</option>
+    <option value="07">يوليو</option>
+    <option value="08">أغسطس</option>
+    <option value="09">سبتمبر</option>
+    <option value="10">أكتوبر</option>
+    <option value="11">نوفمبر</option>
+    <option value="12">ديسمبر</option>
+</select>
+<input id="filterType" placeholder="نوع الصرف">
+<button onclick="renderData()">تطبيق الفلتر</button>
+</section>
+
+<section>
+<h3>المصاريف</h3>
+<table>
+<thead>
+<tr><th>رقم</th><th>اسم</th><th>نوع</th><th>المبلغ</th><th>التاريخ</th></tr>
+</thead>
+<tbody id="expensesTable"></tbody>
+</table>
+</section>
+
+<section>
+<h3>المبيعات</h3>
+<table>
+<thead>
+<tr><th>المبلغ</th><th>التاريخ</th></tr>
+</thead>
+<tbody id="salesTable"></tbody>
+</table>
+</section>
+
+<section>
+<h3>الإجماليات</h3>
+<p id="totalExpenses">إجمالي المصاريف: 0</p>
+<p id="totalSales">إجمالي المبيعات: 0</p>
+<p id="netProfit">الربح الصافي: 0</p>
+</section>
+
+<section>
+<h3>تحليل بياني</h3>
+<canvas id="chart" width="400" height="200"></canvas>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let expenses = JSON.parse(localStorage.getItem("expenses") || "[]");
+let sales = JSON.parse(localStorage.getItem("sales") || "[]");
+
+function addExpense() {
+    let id = document.getElementById("expenseId").value;
+    let name = document.getElementById("expenseName").value;
+    let type = document.getElementById("expenseType").value;
+    let amount = parseFloat(document.getElementById("expenseAmount").value);
+    let date = document.getElementById("expenseDate").value;
+    if (!id || !name || !type || !amount || !date) return alert("أكمل البيانات");
+    expenses.push({id, name, type, amount, date});
+    localStorage.setItem("expenses", JSON.stringify(expenses));
+    renderData();
+}
+
+function addSale() {
+    let amount = parseFloat(document.getElementById("saleAmount").value);
+    let date = document.getElementById("saleDate").value;
+    if (!amount || !date) return alert("أكمل البيانات");
+    sales.push({amount, date});
+    localStorage.setItem("sales", JSON.stringify(sales));
+    renderData();
+}
+
+function renderData() {
+    let monthFilter = document.getElementById("filterMonth").value;
+    let typeFilter = document.getElementById("filterType").value;
+
+    let filteredExpenses = expenses.filter(e =>
+        (!monthFilter || e.date.split("-")[1] === monthFilter) &&
+        (!typeFilter || e.type.includes(typeFilter))
+    );
+    let filteredSales = sales.filter(s =>
+        (!monthFilter || s.date.split("-")[1] === monthFilter)
+    );
+
+    let expensesTable = document.getElementById("expensesTable");
+    expensesTable.innerHTML = "";
+    filteredExpenses.forEach(e => {
+        expensesTable.innerHTML += `<tr><td>${e.id}</td><td>${e.name}</td><td>${e.type}</td><td>${e.amount}</td><td>${e.date}</td></tr>`;
+    });
+
+    let salesTable = document.getElementById("salesTable");
+    salesTable.innerHTML = "";
+    filteredSales.forEach(s => {
+        salesTable.innerHTML += `<tr><td>${s.amount}</td><td>${s.date}</td></tr>`;
+    });
+
+    let totalExp = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+    let totalSal = filteredSales.reduce((sum, s) => sum + s.amount, 0);
+    document.getElementById("totalExpenses").textContent = "إجمالي المصاريف: " + totalExp;
+    document.getElementById("totalSales").textContent = "إجمالي المبيعات: " + totalSal;
+    document.getElementById("netProfit").textContent = "الربح الصافي: " + (totalSal - totalExp);
+
+    drawChart(filteredExpenses, filteredSales);
+}
+
+function drawChart(expenses, sales) {
+    let ctx = document.getElementById("chart").getContext("2d");
+    let labels = [...new Set([...expenses.map(e => e.date), ...sales.map(s => s.date)])].sort();
+    let expData = labels.map(date => expenses.filter(e => e.date === date).reduce((sum, e) => sum + e.amount, 0));
+    let salData = labels.map(date => sales.filter(s => s.date === date).reduce((sum, s) => sum + s.amount, 0));
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'المصاريف', data: expData, borderColor: 'red', fill: false },
+                { label: 'المبيعات', data: salData, borderColor: 'green', fill: false }
+            ]
+        }
+    });
+}
+
+renderData();
+</script>
+
+</body>
+</html>
